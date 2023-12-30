@@ -3,11 +3,13 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import { useCart } from 'react-use-cart';
 import { toast } from 'react-toastify';
 import { currency } from '../lib/helpers';
 
 const SearchResult = () => {
     const router = useRouter();
+    const { addItem } = useCart();
     const [searchTerm, setSearchTerm] = useState<any>();
     const [searchResults, setSearchResults] = useState<any>();
 
@@ -32,10 +34,8 @@ const SearchResult = () => {
                 searchTerm: searchQuery,
             }),
         })
-            .then(function (response) {
-                return response.json();
-            })
-            .then(function (data) {
+            .then(response => response.json())
+            .then(data => {
                 if (data.error) {
                     toast(data.error, {
                         hideProgressBar: false,
@@ -47,8 +47,7 @@ const SearchResult = () => {
                 }
                 setSearchResults(data);
             })
-            .catch(function (err) {
-                // There was an error
+            .catch(err => {
                 console.log('Payload error:' + err);
             });
     }
@@ -57,35 +56,38 @@ const SearchResult = () => {
         return <></>;
     }
 
-    function mainImage(images) {
-        if (images.length === 0) {
+    const mainImage = (product) => {
+        const imgProps = {
+            alt: 'product image',
+            className: 'card-img-top',
+            style: {
+                width: '100%',
+                height: '100%',
+            },
+        };
+
+        if (product.images.length === 0) {
             return (
-                <img
-                    alt={'product image'}
-                    className="card-img-top"
-                    height={300}
-                    style={{
-                        width: 'auto',
-                        height: 'auto',
-                    }}
-                    width={300}
-                />
+                <Link href={`/product/${product.permalink}`}>
+                    <div>
+                        <img {...imgProps} />
+                    </div>
+                </Link>
             );
         }
+
         return (
-            <img
-                alt={images[0].alt}
-                className="card-img-top"
-                height={300}
-                src={images[0].url}
-                style={{
-                    width: 'auto',
-                    height: 'auto',
-                }}
-                width={300}
-            />
+            <Link href={`/product/${product.permalink}`}>
+                <div>
+                    <img
+                        {...imgProps}
+                        alt={product.images[0].alt}
+                        src={product.images[0].url}
+                    />
+                </div>
+            </Link>
         );
-    }
+    };
 
     return (
         <>
@@ -99,18 +101,36 @@ const SearchResult = () => {
                 {searchResults.map(product => (
                     <div className="col" key={product.id}>
                         <div className="card product-card">
-                            {mainImage(product.images)}
+                            {mainImage(product)}
                             <div className="card-body">
                                 <div className="card-text">
                                     <Link
                                         className="link-secondary"
-                                        href={'/product/' + product.permalink}
+                                        href={`/product/${product.permalink}`}
                                     >
                                         <h2 className="h4">{product.name}</h2>
                                     </Link>
                                     <span className="h6 text-danger">
                                         {currency(product.price / 100)}
                                     </span>
+                                    <p>{product.summary}</p>
+                                    <div className="d-flex justify-content-between">
+                                        <div className="btn-group flex-fill">
+                                            <button
+                                                className="btn btn-dark"
+                                                onClick={() => {
+                                                    addItem(product);
+                                                    toast('Cart updated', {
+                                                        hideProgressBar: false,
+                                                        autoClose: 2000,
+                                                        type: 'success',
+                                                    });
+                                                }}
+                                            >
+                                                Add to cart
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
