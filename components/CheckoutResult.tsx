@@ -1,129 +1,144 @@
+/* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import { useCart } from 'react-use-cart';
-import { Col, Row, Table } from 'react-bootstrap';
-import { BagCheckFill } from 'react-bootstrap-icons';
-import { BagXFill } from 'react-bootstrap-icons';
+import { toast } from 'react-toastify';
+import { currency } from '../lib/helpers';
 
-const CheckoutResult = () => {
+const SearchResult = () => {
     const router = useRouter();
-    const { emptyCart } = useCart();
-    const [order, setOrder] = useState<any>();
+    const { addItem } = useCart();
+    const [searchTerm, setSearchTerm] = useState<any>();
+    const [searchResults, setSearchResults] = useState<any>();
 
     useEffect(() => {
         if (!router.isReady) {
             return;
         }
 
-        getOrder();
+        searchProducts();
     }, [router.isReady]);
 
-    function getOrder() {
-        const orderId = router.query.id;
-
-        // fetch
-        fetch('/api/order', {
+    function searchProducts() {
+        const searchQuery = router.query.keyword;
+        setSearchTerm(searchQuery);
+        fetch('/api/search', {
             method: 'POST',
             cache: 'no-cache',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                orderId: orderId,
+                searchTerm: searchQuery,
             }),
         })
-            .then(function (response) {
-                return response.json();
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    toast(data.error, {
+                        hideProgressBar: false,
+                        autoClose: 2000,
+                        type: 'error',
+                    });
+                    setSearchResults([]);
+                    return;
+                }
+                setSearchResults(data);
             })
-            .then(function (data) {
-                emptyCart();
-                setOrder(data);
-            })
-            .catch(function (err) {
-                // There was an error
+            .catch(err => {
                 console.log('Payload error:' + err);
             });
     }
 
-    function printOutcome() {
-        if (order.paid === true) {
-            return (
-                <div>
-                    <BagCheckFill className="text-success" size={96} />
-                    <h1
-                        className="text-success"
-                        data-test-id="transaction-result"
-                    >
-                        Transaction successful
-                    </h1>
-                </div>
-            );
-        }
-        return (
-            <div>
-                <BagXFill className="text-danger" size={96} />
-                <h1 className="text-danger" data-test-id="transaction-result">
-                    Transaction failed
-                </h1>
-            </div>
-        );
-    }
-
-    // Check order
-    if (!order) {
+    if (!searchResults) {
         return <></>;
     }
 
+    const mainImage = (product) => {
+        const imgProps = {
+            alt: 'product image',
+            className: 'card-img-top',
+            style: {
+                width: '100%',
+                height: '100%',
+            },
+        };
+
+        if (product.images.length === 0) {
+            return (
+                <Link href={`/product/${product.permalink}`}>
+                    <div>
+                        <img {...imgProps} />
+                    </div>
+                </Link>
+            );
+        }
+
+        return (
+            <Link href={`/product/${product.permalink}`}>
+                <div>
+                    <img
+                        {...imgProps}
+                        alt={product.images[0].alt}
+                        src={product.images[0].url}
+                    />
+                </div>
+            </Link>
+        );
+    };
+
     return (
-        <Row>
-            <Col className="g-3" sm={{ span: 10, offset: 1 }} xs={12}>
-                <Row>
-                    <Col
-                        className="text-center mb-3"
-                        sm={{ span: 8, offset: 2 }}
-                        xs={12}
-                    >
-                        {printOutcome()}
-                    </Col>
-                    <Col sm={{ span: 10, offset: 1 }} xs={12}>
-                        <Table borderless responsive>
-                            <tbody>
-                                <tr>
-                                    <td>
-                                        <h6 className="text-dark">Order ID</h6>
-                                    </td>
-                                    <td className="text-break">{order.id}</td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        <h6 className="text-dark">
-                                            Transaction ID
-                                        </h6>
-                                    </td>
-                                    <td>{order.transaction_id}</td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        <h6 className="text-dark">
-                                            Checkout ID
-                                        </h6>
-                                    </td>
-                                    <td>{order.checkout_id}</td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        <h6 className="text-dark">Status</h6>
-                                    </td>
-                                    <td>{order.status}</td>
-                                </tr>
-                            </tbody>
-                        </Table>
-                    </Col>
-                </Row>
-            </Col>
-        </Row>
+        <>
+            <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
+                <h5>
+                    Showing {searchResults.length} results for &apos;
+                    {searchTerm}&apos;
+                </h5>
+            </div>
+            <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
+                {searchResults.map(product => (
+                    <div className="col" key={product.id}>
+                        <div className="card product-card">
+                            {mainImage(product)}
+                            <div className="card-body">
+                                <div className="card-text">
+                                    <Link
+                                        className="link-secondary"
+                                        href={`/product/${product.permalink}`}
+                                    >
+                                        <h2 className="h4">{product.name}</h2>
+                                    </Link>
+                                    <span className="h6 text-danger">
+                                        {currency(product.price / 100)}
+                                    </span>
+                                    <p>{product.summary}</p>
+                                    <div className="d-flex justify-content-between">
+                                        <div className="btn-group flex-fill">
+                                            <button
+                                                className="btn btn-dark"
+                                                onClick={() => {
+                                                    addItem(product);
+                                                    toast('Cart updated', {
+                                                        hideProgressBar: false,
+                                                        autoClose: 2000,
+                                                        type: 'success',
+                                                    });
+                                                }}
+                                            >
+                                                Add to cart
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </>
     );
 };
 
-export default CheckoutResult;
+export default SearchResult;
